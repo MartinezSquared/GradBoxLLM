@@ -1,1 +1,2 @@
-googleDrive/
+googleDrive/*
+*.ipynb_checkpoints/
