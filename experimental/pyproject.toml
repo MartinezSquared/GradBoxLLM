@@ -3,9 +3,16 @@ name = "experimental"
 version = "0.1.0"
 description = "GradBoxLLM Experimental pyenv."
 readme = "README.md"
-requires-python = "==3.11.11"
+requires-python = ">=3.10,<=3.11"
 dependencies = [
+    "google-genai>=1.1.0",
     "ipykernel>=6.29.5",
+    "keyring>=25.6.0",
+    "keyrings-alt>=5.0.2",
+    "pathlib>=1.0.1",
+    "pypdf2>=3.0.1",
+    "python-dotenv>=1.0.1",
+    "secretstorage>=3.3.3",
 ]
 
 [dependency-groups]

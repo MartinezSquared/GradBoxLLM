@@ -1,0 +1,7 @@
+Metadata-Version: 2.2
+Name: experimental
+Version: 0.1.0
+Summary: GradBoxLLM Experimental pyenv.
+Requires-Python: ==3.11.11
+Description-Content-Type: text/markdown
+Requires-Dist: ipykernel>=6.29.5
