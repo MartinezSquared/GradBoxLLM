@@ -7,6 +7,7 @@ requires-python = ">=3.10,<=3.11"
 dependencies = [
     "google-genai>=1.1.0",
     "ipykernel>=6.29.5",
+    "jupyterlab>=4.3.5",
     "keyring>=25.6.0",
     "keyrings-alt>=5.0.2",
     "pathlib>=1.0.1",
