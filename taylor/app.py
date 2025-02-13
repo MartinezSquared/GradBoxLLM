@@ -23,12 +23,6 @@ def chunkText(text):
     chunks = textSplitter.split_text(text)
     return chunks
 
-
-
-        
-    
-
-
 def main():
 ## Setup
     # Load API Keys
@@ -56,7 +50,9 @@ def main():
                 # Chunk PDF Text
                 chunkedText = chunkText(extractedText)
                 st.write(chunkedText)
-                # ncode Chunk into Vector Store
+                
+                # Encode Chunk into Vector Store
+                
                 
 
 if __name__ == "__main__":
