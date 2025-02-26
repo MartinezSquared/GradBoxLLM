@@ -1,19 +1,153 @@
-# Dependancies
-# pip install -qU langchain_community
-# pip install -qU langchain-text-splitters
-# pip install -qU nest_asyncio
-# pip install -qU pypdf
-# pip install -qU tiktoken
-# pip install -qU langchain-huggingface
-# pip install -qU sentence-transformers
-# pip install -qU faiss-cpu
-# pip install -qU faiss-gpu
-# pip install -qU langchain-google-genai
-
-from langchain_community.vectorstores import FAISS
-from sentence_transformers import SentenceTransformer
-import numpy as np
 import os
+import asyncio
+import nest_asyncio
+import numpy as np
+from google.colab import drive
+from dotenv import load_dotenv
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
+from sentence_transformers import SentenceTransformer
+from langchain_community.vectorstores import FAISS
+from langchain_google_genai import ChatGoogleGenerativeAI
+from typing import Optional
+
+async def main():
+    # Load and split the PDF pages
+    pages = await load_pdf_pages(pdf_path)
+    pdf_chunks = split_pdf_pages(pages, chunk_size=200, chunk_overlap=50)
+    print("Example Chunk:", pdf_chunks[300])
+    
+    # Load the SentenceTransformer model (using GPU) and compute embeddings
+    model = SentenceTransformer("Lajavaness/bilingual-embedding-small", trust_remote_code=True, device="cuda")
+    embeddings = compute_pdf_embeddings(pdf_chunks, device="cuda")
+    
+    # Create or load the FAISS index using the helper function
+    faiss_index_path = "/content/drive/MyDrive/MartinezSquared/GradBoxLLM/assets/faissIndex"
+    index = load_or_create_faiss_index(faiss_index_path, embeddings, pdf_chunks, model)
+    
+    # Define the query and retrieve text chunks
+    query = """
+    An elderly client who experiences nighttime confusion wanders
+    from his room into the room of another client. The nurse can best
+    help decrease the client’s confusion by:
+    ❍ A. Assigning a nursing assistant to sit with him until he falls asleep
+    ❍ B. Allowing the client to room with another elderly client
+    ❍ C. Administering a bedtime sedative
+    ❍ D. Leaving a nightlight on during the evening and night shifts
+    """
+    retrieved_chunks = retrieve_text_chunks(query, index, model)
+    for i, chunk in enumerate(retrieved_chunks):
+        print(f"Meta Data {i+1}:")
+        print(chunk.metadata)
+        print(f"Chunk {i+1}:")
+        print(chunk.page_content)
+        print("-" * 20)
+    
+    # Use Gemini for retrieval augmented generation
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-2.0-flash-thinking-exp-01-21",
+        temperature=0,
+        max_tokens=None,
+        timeout=None,
+        max_retries=2,
+        api_key=GOOGLE_API_KEY
+    )
+    prompt = f"""
+    You are a helpful assistant that answers questions based on the provided context.
+    Context: {retrieved_chunks[0].page_content}
+    Question: {query}
+    Answer:
+    """
+    response = llm.invoke(prompt)
+    print(response.content)
+
+def compute_pdf_embeddings(docs, device="cuda"):
+    texts = [doc.page_content for doc in docs]
+    model = SentenceTransformer("Lajavaness/bilingual-embedding-small", trust_remote_code=True, device=device)
+    embeddings = model.encode(texts)
+    return embeddings
+
+def split_pdf_pages(pages, chunk_size: int = 100, chunk_overlap: int = 0):
+    text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
+        model_name="gpt-4", chunk_size=chunk_size, chunk_overlap=chunk_overlap
+    )
+    chunks = []
+    for page in pages:
+        page_chunks = text_splitter.split_text(page.page_content)
+        for chunk in page_chunks:
+            chunks.append(Document(page_content=chunk, metadata=page.metadata))
+    return chunks
+
+async def load_pdf_pages(file_path: str):
+    loader = PyPDFLoader(file_path)
+    pages = []
+    async for page in loader.alazy_load():
+        pages.append(page)
+    return pages
+
+def create_faiss_index(embeddings: np.ndarray, documents: list[Document], vector_store: Optional[FAISS] = None):
+    embeddings = embeddings.astype("float32")
+    texts = [doc.page_content for doc in documents]
+    embedding_model = SentenceTransformer("Lajavaness/bilingual-embedding-small", trust_remote_code=True)
+    if vector_store is None:
+        vector_store = FAISS.from_texts(
+            texts=texts,
+            embedding=embedding_model,
+            metadatas=[doc.metadata for doc in documents]
+        )
+    else:
+        vector_store.add_texts(
+            texts=texts,
+            embeddings=embeddings,
+            metadatas=[doc.metadata for doc in documents]
+        )
+    return vector_store
+
+def load_or_create_faiss_index(faiss_index_path: str, embeddings: np.ndarray, pdf_chunks: list[Document], model: SentenceTransformer) -> FAISS:
+    """
+    Loads an existing FAISS index from disk if available; otherwise, creates a new one,
+    saves it to disk, and returns the index.
+
+    Args:
+        faiss_index_path (str): The path to the FAISS index on disk.
+        embeddings (np.ndarray): The computed embeddings for the PDF chunks.
+        pdf_chunks (list[Document]): A list of Document objects containing PDF chunks.
+        model (SentenceTransformer): The embedding model to use for loading the index.
+
+    Returns:
+        FAISS: The loaded or newly created FAISS index.
+    """
+    if os.path.exists(faiss_index_path):
+        print("Loading existing FAISS index from disk...")
+        index = FAISS.load_local(faiss_index_path, model, allow_dangerous_deserialization=True)
+    else:
+        print("Creating and saving new FAISS index...")
+        index = create_faiss_index(embeddings, pdf_chunks)
+        index.save_local(faiss_index_path)
+    return index
+
+def retrieve_text_chunks(query: str, index: FAISS, model: SentenceTransformer, k: int = 8):
+    query_embedding = model.encode([query]).astype(np.float32)
+    scores, indices = index.index.search(query_embedding, k)
+    docs = [index.index_to_docstore_id[idx] for idx in indices[0]]
+    retrieved_chunks = [index.docstore.search(doc_id) for doc_id in docs]
+    return retrieved_chunks
+
+if __name__ == "__main__":
+    # Load environment variables from .env file
+    load_dotenv()
+    
+    # Get API keys from environment variables
+    GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+    HUGGINGFACE_API_KEY = os.getenv('HUGGINGFACE_API_KEY')
+    
+    # Directories 
+    assets_dir = "../googleDrive/assets/"   
+    pdf_dir = f"{assets_dir}textbooks/"
+    faiss_dir = f"{assets_dir}faissIndex/"
+
+    nest_asyncio.apply()
+    asyncio.run(main())
 
 
