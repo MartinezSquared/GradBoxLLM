@@ -219,3 +219,4 @@ if __name__ == "__main__":
     nest_asyncio.apply()
     asyncio.run(main(pdf_path, faiss_index_path, query, model, llm, prompt_template))
 
+
