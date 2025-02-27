@@ -14,6 +14,18 @@ from typing import Optional
 async def main(pdf_path: str, faiss_index_path: str, query: str, 
                model: SentenceTransformer, llm: ChatGoogleGenerativeAI, 
                prompt_template: str):
+    """
+    Main function that processes a PDF, retrieves relevant text chunks,
+    and uses an LLM for retrieval augmented generation.
+
+    Args:
+        pdf_path (str): Path to the PDF file.
+        faiss_index_path (str): Path to the FAISS index on disk.
+        query (str): Query to be used for text retrieval.
+        model (SentenceTransformer): Pre-instantiated SentenceTransformer model.
+        llm (ChatGoogleGenerativeAI): Pre-configured LLM instance.
+        prompt_template (str): Template for the prompt with placeholders {context} and {query}.
+    """
     # Load and split the PDF pages
     pages = await load_pdf_pages(pdf_path)
     pdf_chunks = split_pdf_pages(pages, chunk_size=200, chunk_overlap=50)
@@ -40,11 +52,33 @@ async def main(pdf_path: str, faiss_index_path: str, query: str,
     print(response.content)
 
 def compute_pdf_embeddings(docs, model: SentenceTransformer, device="cuda"):
+    """
+    Computes embeddings for a list of Document objects using the provided model.
+
+    Args:
+        docs (list[Document]): List of Document objects containing PDF chunks.
+        model (SentenceTransformer): Pre-instantiated embedding model.
+        device (str, optional): Device to use for computation. Defaults to "cuda".
+
+    Returns:
+        np.ndarray: Computed embeddings as a NumPy array.
+    """
     texts = [doc.page_content for doc in docs]
     embeddings = model.encode(texts)
     return embeddings
 
 def split_pdf_pages(pages, chunk_size: int = 100, chunk_overlap: int = 0):
+    """
+    Splits the PDF pages into smaller text chunks using a recursive character splitter.
+
+    Args:
+        pages (list): List of pages from the PDF.
+        chunk_size (int, optional): Desired size of each chunk. Defaults to 100.
+        chunk_overlap (int, optional): Overlap between consecutive chunks. Defaults to 0.
+
+    Returns:
+        list[Document]: A list of Document objects with split text and metadata.
+    """
     text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
         model_name="gpt-4", chunk_size=chunk_size, chunk_overlap=chunk_overlap
     )
@@ -56,6 +90,15 @@ def split_pdf_pages(pages, chunk_size: int = 100, chunk_overlap: int = 0):
     return chunks
 
 async def load_pdf_pages(file_path: str):
+    """
+    Asynchronously loads PDF pages from a file using PyPDFLoader.
+
+    Args:
+        file_path (str): Path to the PDF file.
+
+    Returns:
+        list: A list of loaded pages.
+    """
     loader = PyPDFLoader(file_path)
     pages = []
     async for page in loader.alazy_load():
@@ -63,6 +106,17 @@ async def load_pdf_pages(file_path: str):
     return pages
 
 def create_faiss_index(embeddings: np.ndarray, documents: list[Document], vector_store: Optional[FAISS] = None):
+    """
+    Creates or updates a FAISS index from document embeddings.
+
+    Args:
+        embeddings (np.ndarray): Array of computed embeddings.
+        documents (list[Document]): List of Document objects.
+        vector_store (Optional[FAISS], optional): Existing FAISS vector store. Defaults to None.
+
+    Returns:
+        FAISS: A FAISS index instance.
+    """
     embeddings = embeddings.astype("float32")
     texts = [doc.page_content for doc in documents]
     embedding_model = SentenceTransformer("Lajavaness/bilingual-embedding-small", trust_remote_code=True)
@@ -81,6 +135,19 @@ def create_faiss_index(embeddings: np.ndarray, documents: list[Document], vector
     return vector_store
 
 def load_or_create_faiss_index(faiss_index_path: str, embeddings: np.ndarray, pdf_chunks: list[Document], model: SentenceTransformer) -> FAISS:
+    """
+    Loads an existing FAISS index from disk if available; otherwise, creates a new one,
+    saves it to disk, and returns the index.
+
+    Args:
+        faiss_index_path (str): The path to the FAISS index on disk.
+        embeddings (np.ndarray): Computed embeddings for the PDF chunks.
+        pdf_chunks (list[Document]): List of Document objects containing PDF chunks.
+        model (SentenceTransformer): The embedding model to use for loading the index.
+
+    Returns:
+        FAISS: The loaded or newly created FAISS index.
+    """
     if os.path.exists(faiss_index_path):
         print("Loading existing FAISS index from disk...")
         index = FAISS.load_local(faiss_index_path, model, allow_dangerous_deserialization=True)
@@ -91,6 +158,18 @@ def load_or_create_faiss_index(faiss_index_path: str, embeddings: np.ndarray, pd
     return index
 
 def retrieve_text_chunks(query: str, index: FAISS, model: SentenceTransformer, k: int = 8):
+    """
+    Retrieves the top 'k' text chunks from the FAISS index that best match the query.
+
+    Args:
+        query (str): The query string.
+        index (FAISS): The FAISS index.
+        model (SentenceTransformer): The embedding model for query encoding.
+        k (int, optional): Number of nearest neighbors to retrieve. Defaults to 8.
+
+    Returns:
+        list: A list of retrieved Document objects.
+    """
     query_embedding = model.encode([query]).astype(np.float32)
     scores, indices = index.index.search(query_embedding, k)
     docs = [index.index_to_docstore_id[idx] for idx in indices[0]]
@@ -98,6 +177,7 @@ def retrieve_text_chunks(query: str, index: FAISS, model: SentenceTransformer, k
     return retrieved_chunks
 
 if __name__ == "__main__":
+    # Load environment variables from the .env file
     load_dotenv()
     GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
     HUGGINGFACE_API_KEY = os.getenv('HUGGINGFACE_API_KEY')
@@ -119,7 +199,7 @@ if __name__ == "__main__":
         api_key=GOOGLE_API_KEY
     )
     
-    # Define the query and prompt template (with placeholders for formatting)
+    # Define the query and prompt template with placeholders for formatting
     query = """
     An elderly client who experiences nighttime confusion wanders
     from his room into the room of another client. The nurse can best
