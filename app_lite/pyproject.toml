@@ -1,0 +1,20 @@
+[project]
+name = "gradboxllm"
+version = "0.1.0"
+authors = [
+    { name = "taylorswrite", email = "wtmartinez@ucla.edu" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "faiss-cpu>=1.10.0",
+    "langchain-community>=0.3.18",
+    "langchain-google-genai>=2.0.11",
+    "langchain-huggingface>=0.1.2",
+    "langchain-text-splitters>=0.3.6",
+    "nest-asyncio>=1.6.0",
+    "pypdf>=5.3.0",
+    "sentence-transformers>=3.4.1",
+    "streamlit>=1.42.2",
+    "streamlit-authenticator>=0.4.2",
+    "tiktoken>=0.9.0",
+]
