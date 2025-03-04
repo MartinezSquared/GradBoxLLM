@@ -1,0 +1,9 @@
+streamlit
+streamlit-authenticator
+python-dotenv
+sentence-transformers
+langchain-google-genai
+langchain-community
+pyyaml
+nest-asyncio
+langchain-huggingface
