@@ -4,7 +4,7 @@ import os
 import nest_asyncio
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
-from distilled_rag import retrieve_text_chunks, load_vectorstore
+from rag import retrieve_text_chunks, load_vectorstore
 import yaml
 from yaml.loader import SafeLoader
 
