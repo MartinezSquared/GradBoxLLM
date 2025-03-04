@@ -9,7 +9,7 @@ import yaml
 from yaml.loader import SafeLoader
 
 # Load configuration from YAML file
-with open('./streamlit/auth_streamlit_app_lite.yaml') as file:
+with open('.cloud_app/streamlit/auth_streamlit_app_lite.yamvl') as file:
     config = yaml.load(file, Loader=SafeLoader)
 
 # Ensure the cookie key is provided; if not, stop execution.
