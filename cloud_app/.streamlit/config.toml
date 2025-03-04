@@ -1,0 +1,7 @@
+[browser]
+gatherUsageStats = false
+
+[server]
+enableStaticServing = true
+enableCORS=false
+enableXsrfProtection=false
