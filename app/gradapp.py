@@ -17,12 +17,12 @@ import yaml
 from yaml.loader import SafeLoader
 
 # Load configuration from YAML file
-with open('./.streamlit/auth_streamlit_app_lite.yaml') as file:
+with open('./.streamlit/auth_streamlit_app.yaml') as file:
     config = yaml.load(file, Loader=SafeLoader)
 
 # Ensure the cookie key is provided; if not, stop execution.
 if not config.get('cookie', {}).get('key'):
-    st.error("Cookie key not set in YAML config. Please update '.streamlit/auth_streamlit_app_lite.yaml'.")
+    st.error("Cookie key not set in YAML config. Please update '.streamlit/auth_streamlit_app.yaml'.")
     st.stop()
 else:
     authenticator = stauth.Authenticate(
@@ -87,21 +87,27 @@ def build_vectorstore(pdf_files):
 
 st.title("GradBoxLLM - Textbook AI Assistant")
 
-# Render the login widget using the new syntax.
-authenticator.login(
-    "main",
-    fields={
-        "Form name": "Login",
-        "Username": "Username",
-        "Password": "Password",
-        "Login": "Login",
-        "Captcha": "Captcha"
-    }
-)
+# Create a container for the login widget.
+login_container = st.empty()
+with login_container.container():
+    authenticator.login(
+        "main", 
+        fields={
+            "Form name": "Login",
+            "Username": "Username",
+            "Password": "Password",
+            "Login": "Login",
+            "Captcha": "Captcha"
+        },
+        key="login"
+    )
 
-# Check the authentication status from session state.
+# Check authentication state via st.session_state
 if st.session_state.get("authentication_status"):
+    # Remove the login widget by clearing the container.
+    login_container.empty()
     name = st.session_state.get("name")
+    username = st.session_state.get("username")
     st.success(f"Welcome, {name}!")
     # Render a logout button with a unique key.
     authenticator.logout("Logout", "main", key="logout-widget")

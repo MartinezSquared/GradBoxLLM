@@ -74,12 +74,34 @@ def create_faiss_index(embeddings: np.ndarray, documents: list[Document], vector
         )
     return vector_store
 
+import os
+
+def get_pdf_filenames(folder_path):
+    pdf_files = []
+    try:
+        #Ensure folder_path is an absolute path.
+        absolute_folder_path = os.path.abspath(folder_path)
+        for filename in os.listdir(absolute_folder_path):
+            if filename.lower().endswith(".pdf"):
+                full_path = os.path.join(absolute_folder_path, filename)
+                pdf_files.append(full_path)
+    except FileNotFoundError:
+        print(f"Error: Folder '{folder_path}' not found.")
+    except NotADirectoryError:
+        print(f"Error: '{folder_path}' is not a directory.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+    print(pdf_files)
+    return pdf_files
+
 if __name__ == "__main__":
     # List your PDF file paths (adjust the paths as needed)
-    pdf_paths = [
-        "../googleDrive/assets/textbooks/medicalSurgicalNursing.pdf",
-        "../googleDrive/assets/textbooks/Medical-surgical_nursing--Preparation_for_practice_(2010).pdf"
-    ]
+    folder_path = "../googleDrive/assets/textbooks/"  # Adjust as needed
+    pdf_paths = get_pdf_filenames(folder_path)
+    # pdf_paths = [
+    #     "../googleDrive/assets/textbooks/medicalSurgicalNursing.pdf",
+    #     "../googleDrive/assets/textbooks/Medical-surgical_nursing--Preparation_for_practice_(2010).pdf"
+    # ]
     
     all_chunks = []
     # Process each PDF file iteratively
@@ -102,3 +124,4 @@ if __name__ == "__main__":
     os.makedirs(faiss_index_path, exist_ok=True)
     index.save_local(faiss_index_path)
     print(f"Vectorstore saved to: {faiss_index_path}")
+
