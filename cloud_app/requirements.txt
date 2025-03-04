@@ -1,4 +1,5 @@
 streamlit
+faiss-cpu
 streamlit-authenticator
 python-dotenv
 sentence-transformers

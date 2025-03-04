@@ -1,24 +1,22 @@
 import streamlit as st
-import os
 import nest_asyncio
-from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from rag import retrieve_text_chunks, load_vectorstore
 
 # Allow nested asyncio loops
 nest_asyncio.apply()
 
-# Load environment variables (including GOOGLE_API_KEY)
-load_dotenv()
+# Retrieve Hugging Face and Gemini keys from Streamlit Secrets
+HUGGINGFACE_API_KEY = st.secrets.get("HUGGINGFACE_API_KEY")
+GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY")
 
-# --- Streamlit UI ---
 st.title("GradBoxLLM - Textbook AI Assistant Demo")
 
 # Button to load heavy resources on demand
 if "index" not in st.session_state:
     if st.button("Load Vectorstore"):
         with st.spinner("Loading vectorstore..."):
-            index = load_vectorstore()
+            index = load_vectorstore("./cloud_app/faissIndex")
             if index is None:
                 st.error("No vectorstore found. Please build the vectorstore offline and place it at './faissIndex'.")
             else:
@@ -34,9 +32,7 @@ if st.session_state.get("index") is not None:
     if st.button("Submit Query") and user_query:
         index = st.session_state["index"]
         retrieved_chunks = retrieve_text_chunks(user_query, index, k=4)
-        retrieved_text = ""
-        for chunk in retrieved_chunks:
-            retrieved_text += chunk.page_content + "\n"
+        retrieved_text = "".join([chunk.page_content + "\n" for chunk in retrieved_chunks])
 
         # Compose the prompt for Gemini
         prompt = f"""
@@ -48,12 +44,12 @@ Question:
 {user_query}
 Answer:
         """
+
         st.subheader("Prompt to Gemini")
         st.code(prompt)
 
-        GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
-        if GOOGLE_API_KEY is None:
-            st.error("GOOGLE_API_KEY not set in environment.")
+        if not GEMINI_API_KEY:
+            st.error("No Gemini API key found in Streamlit secrets.")
         else:
             llm = ChatGoogleGenerativeAI(
                 model="gemini-2.0-flash-thinking-exp-01-21",
@@ -61,7 +57,7 @@ Answer:
                 max_tokens=None,
                 timeout=None,
                 max_retries=2,
-                api_key=GOOGLE_API_KEY
+                api_key=GEMINI_API_KEY
             )
             response = llm.invoke(prompt)
             st.subheader("Gemini's Response")
