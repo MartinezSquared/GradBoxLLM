@@ -73,19 +73,6 @@ if st.session_state.get("authentication_status"):
             
             retrieved_text = "\n".join(formatted_chunks)
             
-            prompt = f"""
-System:
-You are a helpful assistant using textbook knowledge.
-Context:
-{retrieved_text}
-Question:
-{user_query}
-Answer:
-            """
-            
-            st.subheader("Prompt to Gemini")
-            st.code(prompt)
-
             if not GEMINI_API_KEY:
                 st.error("No Google API key found.")
             else:
@@ -96,7 +83,15 @@ Answer:
                         max_tokens=None,
                         api_key=GEMINI_API_KEY
                     )
-                    response = llm.invoke(prompt)
+                    response = llm.invoke(f"""
+System:
+You are a helpful assistant using textbook knowledge.
+Context:
+{retrieved_text}
+Question:
+{user_query}
+Answer:
+                    """)
                 
                 st.subheader("Gemini's Response")
                 st.write(response.content)
@@ -110,4 +105,15 @@ Answer:
                     st.markdown(f"**Title:** {title}")
                     st.markdown(f"**Page:** {page}")
                     st.write(chunk.page_content)
+                
+                st.subheader("Prompt to Gemini")
+                st.code(f"""
+System:
+You are a helpful assistant using textbook knowledge.
+Context:
+{retrieved_text}
+Question:
+{user_query}
+Answer:
+                """)
 
