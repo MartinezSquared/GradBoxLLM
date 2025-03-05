@@ -17,17 +17,18 @@ with open("./public_app/.streamlit/auth_streamlit_app_lite.yaml") as file:
     config = yaml.load(file, Loader=SafeLoader)
 
 # Streamlit UI
-st.title("GradBoxLLM - Textbook Assistant")
+st.title("GradBoxLLM - Textbook AI Assistant")
 
 # User API Key Input
 def hash_key(key):
     return hashlib.sha256(key.encode()).hexdigest() if key else None
 
-st.sidebar.header("Add Your API Keys")
+st.sidebar.header("API Key Configuration")
 st.sidebar.markdown("[Get your Google API Key](https://aistudio.google.com/apikey)")
 st.sidebar.markdown("[Get your Hugging Face API Key](https://huggingface.co/settings/tokens)")
-user_gemini_key = st.sidebar.text_input("Enter Your Google API Key", type="password")
-user_hf_token = st.sidebar.text_input("Enter Your Hugging Face Token", type="password")
+st.sidebar.markdown("[Like what you see? Star the Repo](https://github.com/MartinezSquared/GradBoxLLM)")
+user_gemini_key = st.sidebar.text_input("Enter your Google API Key", type="password")
+user_hf_token = st.sidebar.text_input("Enter your Hugging Face Token", type="password")
 
 hashed_gemini_key = hash_key(user_gemini_key)
 hashed_hf_token = hash_key(user_hf_token)
@@ -59,12 +60,12 @@ if "index" in st.session_state:
         for i, chunk in enumerate(retrieved_chunks, start=1):
             title = chunk.metadata.get("title", "Unknown Title")
             page = chunk.metadata.get("page", "Unknown Page")
-            formatted_chunk = f"""Chunk {i}:
+            formatted_chunk = f"Chunk {i}:
 Title: {title}
 Page: {page}
 {chunk.page_content}
 ---
-"""
+"
             formatted_chunks.append(formatted_chunk)
         
         retrieved_text = "\n".join(formatted_chunks)
