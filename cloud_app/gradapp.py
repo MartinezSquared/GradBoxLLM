@@ -63,8 +63,16 @@ if st.session_state.get("authentication_status"):
         user_query = st.text_input("Enter your query here")
         if st.button("Submit Query") and user_query:
             retrieved_chunks = retrieve_text_chunks(user_query, st.session_state["index"], k=4)
-            retrieved_text = "\n".join(f"Metadata: {chunk.metadata}\n{chunk.page_content}" for chunk in retrieved_chunks)
-
+            
+            formatted_chunks = []
+            for i, chunk in enumerate(retrieved_chunks, start=1):
+                title = chunk.metadata.get("title", "Unknown Title")
+                page = chunk.metadata.get("page", "Unknown Page")
+                formatted_chunk = f"Chunk {i}:\nTitle: {title}\nPage: {page}\n{chunk.page_content}\n---\n"
+                formatted_chunks.append(formatted_chunk)
+            
+            retrieved_text = "\n".join(formatted_chunks)
+            
             prompt = f"""
 System:
 You are a helpful assistant using textbook knowledge.
@@ -93,9 +101,13 @@ Answer:
                 st.subheader("Gemini's Response")
                 st.write(response.content)
                 
-                st.subheader("Retrieved Chunks Metadata")
-                for chunk in retrieved_chunks:
+                st.subheader("Retrieved Chunks")
+                for i, chunk in enumerate(retrieved_chunks, start=1):
+                    title = chunk.metadata.get("title", "Unknown Title")
+                    page = chunk.metadata.get("page", "Unknown Page")
                     st.markdown("---")
-                    st.markdown(f"### Chunk Metadata: {chunk.metadata}")
+                    st.markdown(f"### Chunk {i}")
+                    st.markdown(f"**Title:** {title}")
+                    st.markdown(f"**Page:** {page}")
                     st.write(chunk.page_content)
 
