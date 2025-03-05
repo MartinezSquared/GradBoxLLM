@@ -60,12 +60,12 @@ if "index" in st.session_state:
         for i, chunk in enumerate(retrieved_chunks, start=1):
             title = chunk.metadata.get("title", "Unknown Title")
             page = chunk.metadata.get("page", "Unknown Page")
-            formatted_chunk = f"Chunk {i}:
+            formatted_chunk = f"""Chunk {i}:
 Title: {title}
 Page: {page}
 {chunk.page_content}
 ---
-"
+"""
             formatted_chunks.append(formatted_chunk)
         
         retrieved_text = "\n".join(formatted_chunks)
