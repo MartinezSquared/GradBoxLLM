@@ -8,7 +8,7 @@ nest_asyncio.apply()
 
 # Retrieve Hugging Face and Gemini keys from Streamlit Secrets
 HUGGINGFACE_API_KEY = st.secrets.get("HUGGINGFACE_API_KEY")
-GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY")
+GEMINI_API_KEY = st.secrets.get("GOOGLE_API_KEY")
 
 st.title("GradBoxLLM - Textbook AI Assistant Demo")
 
