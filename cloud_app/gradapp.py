@@ -18,6 +18,10 @@ with open("./cloud_app/.streamlit/auth_streamlit_app_lite.yaml") as file:
 
 # Streamlit UI
 st.title("GradBoxLLM - Textbook AI Assistant Demo")
+st.markdown(
+    "[Like what you see? Star the GitHub Project!](https://github.com/MartinezSquared/GradBoxLLM)",
+    unsafe_allow_html=True
+)
 
 # Authentication
 authenticator = stauth.Authenticate(
