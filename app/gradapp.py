@@ -16,11 +16,12 @@ from rag_to_gemini import retrieve_text_chunks
 import yaml
 from yaml.loader import SafeLoader
 
-# Load configuration from YAML file
+# ──────────────────────────────────────────────────────────────────────────────
+# 1. Load Auth Config
+# ──────────────────────────────────────────────────────────────────────────────
 with open('./.streamlit/auth_streamlit_app.yaml') as file:
     config = yaml.load(file, Loader=SafeLoader)
 
-# Ensure the cookie key is provided; if not, stop execution.
 if not config.get('cookie', {}).get('key'):
     st.error("Cookie key not set in YAML config. Please update '.streamlit/auth_streamlit_app.yaml'.")
     st.stop()
@@ -38,7 +39,9 @@ nest_asyncio.apply()
 # Load environment variables (including GOOGLE_API_KEY)
 load_dotenv()
 
-# Constants for vectorstore path
+# ──────────────────────────────────────────────────────────────────────────────
+# 2. Constants
+# ──────────────────────────────────────────────────────────────────────────────
 FAISS_INDEX_PATH = "./faissIndex"
 
 def load_vectorstore():
@@ -58,21 +61,27 @@ def load_vectorstore():
         return None
 
 def build_vectorstore(pdf_files):
-    """Process uploaded PDFs, build a vectorstore, and save it locally."""
+    """
+    Process uploaded PDFs, build a vectorstore, and save it locally.
+    """
     all_chunks = []
     for pdf_file in pdf_files:
         # Save the uploaded PDF to a temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             tmp.write(pdf_file.read())
             tmp_path = tmp.name
+
         st.write(f"Processing: {tmp_path}")
         pages = asyncio.run(load_pdf_pages(tmp_path))
         chunks = split_pdf_pages(pages, chunk_size=200, chunk_overlap=50)
         all_chunks.extend(chunks)
+
+        # Remove the temp PDF file
         os.remove(tmp_path)
+
     st.write(f"Total number of chunks: {len(all_chunks)}")
 
-    # Compute embeddings (use "cuda" if available; otherwise "cpu")
+    # Compute embeddings (use "cuda" if available, else "cpu")
     embeddings = compute_pdf_embeddings(all_chunks, device="cuda")
 
     # Create the FAISS vectorstore
@@ -81,17 +90,21 @@ def build_vectorstore(pdf_files):
     # Save the index locally
     os.makedirs(FAISS_INDEX_PATH, exist_ok=True)
     index.save_local(FAISS_INDEX_PATH)
+
     return index
 
-# --- Streamlit UI ---
-
+# ──────────────────────────────────────────────────────────────────────────────
+# 3. Streamlit UI
+# ──────────────────────────────────────────────────────────────────────────────
 st.title("GradBoxLLM - Textbook AI Assistant")
 
-# Create a container for the login widget.
+# Create a container for the login widget
 login_container = st.empty()
 with login_container.container():
+    # This call does NOT return (name, auth_status, username) in older versions;
+    # it just updates st.session_state.
     authenticator.login(
-        "main", 
+        "main",
         fields={
             "Form name": "Login",
             "Username": "Username",
@@ -102,19 +115,23 @@ with login_container.container():
         key="login"
     )
 
-# Check authentication state via st.session_state
-if st.session_state.get("authentication_status"):
-    # Remove the login widget by clearing the container.
+# Check authentication state from st.session_state
+authentication_status = st.session_state.get("authentication_status")
+name = st.session_state.get("name")
+username = st.session_state.get("username")
+
+if authentication_status:
+    # User is authenticated -> Clear the login container
     login_container.empty()
-    name = st.session_state.get("name")
-    username = st.session_state.get("username")
     st.success(f"Welcome, {name}!")
-    # Render a logout button with a unique key.
     authenticator.logout("Logout", "main", key="logout-widget")
 
-    # --- Vectorstore Management (Sidebar) ---
+    # ──────────────────────────────────────────────────────────────────────────
+    # Sidebar - Vectorstore Management
+    # ──────────────────────────────────────────────────────────────────────────
     st.sidebar.header("Vectorstore Management")
     uploaded_files = st.sidebar.file_uploader("Upload your PDF files", type="pdf", accept_multiple_files=True)
+
     if st.sidebar.button("Build/Update Vectorstore") and uploaded_files:
         index = build_vectorstore(uploaded_files)
         st.session_state.index = index
@@ -126,7 +143,7 @@ if st.session_state.get("authentication_status"):
         st.session_state.index = None
         st.sidebar.success("Vectorstore deleted.")
 
-    # Check if vectorstore is loaded; if not, load from disk
+    # Attempt to load vectorstore if not already in session
     if "index" not in st.session_state or st.session_state.index is None:
         index = load_vectorstore()
         if index is not None:
@@ -134,9 +151,11 @@ if st.session_state.get("authentication_status"):
             st.sidebar.success("Vectorstore loaded from disk.")
         else:
             st.sidebar.warning("No vectorstore found. Please upload PDFs to build one.")
-            st.info("Vectorstore not available. Please use the sidebar to upload PDFs and build the vectorstore.")
+            st.info("Vectorstore not available. Use the sidebar to build the vectorstore.")
 
-    # --- Main Content: Query using Gemini ---
+    # ──────────────────────────────────────────────────────────────────────────
+    # Main - Q&A with Gemini
+    # ──────────────────────────────────────────────────────────────────────────
     st.header("Ask a Question")
     user_query = st.text_input("Enter your query here")
     if st.button("Submit Query") and user_query:
@@ -145,10 +164,9 @@ if st.session_state.get("authentication_status"):
         else:
             index = st.session_state.index
             retrieved_chunks = retrieve_text_chunks(user_query, index, k=4)
-            retrieved_text = ""
-            for chunk in retrieved_chunks:
-                retrieved_text += chunk.page_content + "\n"
-            # Compose the prompt for Gemini.
+            retrieved_text = "\n".join(chunk.page_content for chunk in retrieved_chunks)
+
+            # Compose the prompt for Gemini
             prompt = f"""
 System:
 You are a helpful nursing assistant that uses relevant context from a textbook and advanced reasoning to answer the user's question.
@@ -161,9 +179,8 @@ Answer:
             st.subheader("Prompt to Gemini")
             st.code(prompt)
 
-            # Initialize Gemini LLM using the API key from environment variables.
             GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
-            if GOOGLE_API_KEY is None:
+            if not GOOGLE_API_KEY:
                 st.error("GOOGLE_API_KEY not set in environment.")
             else:
                 llm = ChatGoogleGenerativeAI(
@@ -178,8 +195,8 @@ Answer:
                 st.subheader("Gemini's Response")
                 st.write(response.content)
 
-elif st.session_state.get("authentication_status") is False:
+elif authentication_status is False:
     st.error("Username/password is incorrect")
-elif st.session_state.get("authentication_status") is None:
+else:
     st.warning("Please enter your username and password")
 
