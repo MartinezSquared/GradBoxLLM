@@ -1,202 +1,101 @@
+import os
 import streamlit as st
 import streamlit_authenticator as stauth
-import os
-import asyncio
-import nest_asyncio
-import tempfile
-import shutil
-from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer
-from langchain_google_genai import ChatGoogleGenerativeAI
-
-# Import functions from your modules
-from pdf_to_vectorstore import load_pdf_pages, split_pdf_pages, compute_pdf_embeddings, create_faiss_index
-from rag_to_gemini import retrieve_text_chunks
-
 import yaml
 from yaml.loader import SafeLoader
-
-# ──────────────────────────────────────────────────────────────────────────────
-# 1. Load Auth Config
-# ──────────────────────────────────────────────────────────────────────────────
-with open('./.streamlit/auth_streamlit_app.yaml') as file:
-    config = yaml.load(file, Loader=SafeLoader)
-
-if not config.get('cookie', {}).get('key'):
-    st.error("Cookie key not set in YAML config. Please update '.streamlit/auth_streamlit_app.yaml'.")
-    st.stop()
-else:
-    authenticator = stauth.Authenticate(
-        config['credentials'],
-        config['cookie']['name'],
-        config['cookie']['key'],
-        config['cookie']['expiry_days']
-    )
+from dotenv import load_dotenv
+import nest_asyncio
+from langchain_google_genai import ChatGoogleGenerativeAI
+from rag import retrieve_text_chunks, load_vectorstore
 
 # Allow nested asyncio loops
 nest_asyncio.apply()
-
-# Load environment variables (including GOOGLE_API_KEY)
 load_dotenv()
 
-# ──────────────────────────────────────────────────────────────────────────────
-# 2. Constants
-# ──────────────────────────────────────────────────────────────────────────────
-FAISS_INDEX_PATH = "./faissIndex"
+# Load Auth Config
+with open("./cloud_app/.streamlit/auth_streamlit_app_lite.yaml") as file:
+    config = yaml.load(file, Loader=SafeLoader)
 
-def load_vectorstore():
-    """
-    Loads the FAISS vectorstore from disk using a CPU-based SentenceTransformer.
-    """
-    embed_model = SentenceTransformer(
-        "Lajavaness/bilingual-embedding-small",
-        trust_remote_code=True,
-        device="cpu"
-    )
-    if os.path.exists(FAISS_INDEX_PATH):
-        from langchain_community.vectorstores import FAISS  # local import for clarity
-        index = FAISS.load_local(FAISS_INDEX_PATH, embed_model, allow_dangerous_deserialization=True)
-        return index
-    else:
-        return None
+# Streamlit UI
+st.title("GradBoxLLM - Textbook AI Assistant Demo")
 
-def build_vectorstore(pdf_files):
-    """
-    Process uploaded PDFs, build a vectorstore, and save it locally.
-    """
-    all_chunks = []
-    for pdf_file in pdf_files:
-        # Save the uploaded PDF to a temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            tmp.write(pdf_file.read())
-            tmp_path = tmp.name
+# Authentication
+authenticator = stauth.Authenticate(
+    config["credentials"],
+    config["cookie"]["name"],
+    config["cookie"]["key"],
+    config["cookie"]["expiry_days"]
+)
 
-        st.write(f"Processing: {tmp_path}")
-        pages = asyncio.run(load_pdf_pages(tmp_path))
-        chunks = split_pdf_pages(pages, chunk_size=200, chunk_overlap=50)
-        all_chunks.extend(chunks)
+# Retrieve secrets
+HF_TOKEN = st.secrets.get("HF_TOKEN")
+GEMINI_API_KEY = st.secrets.get("GOOGLE_API_KEY")
 
-        # Remove the temp PDF file
-        os.remove(tmp_path)
-
-    st.write(f"Total number of chunks: {len(all_chunks)}")
-
-    # Compute embeddings (use "cuda" if available, else "cpu")
-    embeddings = compute_pdf_embeddings(all_chunks, device="cuda")
-
-    # Create the FAISS vectorstore
-    index = create_faiss_index(embeddings, all_chunks)
-
-    # Save the index locally
-    os.makedirs(FAISS_INDEX_PATH, exist_ok=True)
-    index.save_local(FAISS_INDEX_PATH)
-
-    return index
-
-# ──────────────────────────────────────────────────────────────────────────────
-# 3. Streamlit UI
-# ──────────────────────────────────────────────────────────────────────────────
-st.title("GradBoxLLM - Textbook AI Assistant")
-
-# Create a container for the login widget
+# Authentication UI
 login_container = st.empty()
 with login_container.container():
-    # This call does NOT return (name, auth_status, username) in older versions;
-    # it just updates st.session_state.
     authenticator.login(
         "main",
-        fields={
-            "Form name": "Login",
-            "Username": "Username",
-            "Password": "Password",
-            "Login": "Login",
-            "Captcha": "Captcha"
-        },
+        fields={"Form name": "Login", "Username": "Username", "Password": "Password", "Login": "Login"},
         key="login"
     )
 
-# Check authentication state from st.session_state
-authentication_status = st.session_state.get("authentication_status")
-name = st.session_state.get("name")
-username = st.session_state.get("username")
-
-if authentication_status:
-    # User is authenticated -> Clear the login container
+if st.session_state.get("authentication_status"):
     login_container.empty()
+    name = st.session_state.get("name")
     st.success(f"Welcome, {name}!")
     authenticator.logout("Logout", "main", key="logout-widget")
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # Sidebar - Vectorstore Management
-    # ──────────────────────────────────────────────────────────────────────────
-    st.sidebar.header("Vectorstore Management")
-    uploaded_files = st.sidebar.file_uploader("Upload your PDF files", type="pdf", accept_multiple_files=True)
+    # --- Load FAISS Index ---
+    if "index" not in st.session_state:
+        if st.button("Load Vectorstore"):
+            with st.spinner("Loading vectorstore..."):
+                faiss_path = "./cloud_app/faissIndex"
+                index = load_vectorstore(faiss_path)
+                if index:
+                    st.session_state["index"] = index
+                    st.success("Vectorstore loaded successfully.")
+                else:
+                    st.error("No FAISS index found.")
 
-    if st.sidebar.button("Build/Update Vectorstore") and uploaded_files:
-        index = build_vectorstore(uploaded_files)
-        st.session_state.index = index
-        st.sidebar.success("Vectorstore built and saved.")
+    if "index" in st.session_state:
+        st.header("Ask a Nursing Related Question")
+        user_query = st.text_input("Enter your query here")
+        if st.button("Submit Query") and user_query:
+            retrieved_chunks = retrieve_text_chunks(user_query, st.session_state["index"], k=4)
+            retrieved_text = "\n".join(f"Metadata: {chunk.metadata}\n{chunk.page_content}" for chunk in retrieved_chunks)
 
-    if st.sidebar.button("Delete Vectorstore"):
-        if os.path.exists(FAISS_INDEX_PATH):
-            shutil.rmtree(FAISS_INDEX_PATH)
-        st.session_state.index = None
-        st.sidebar.success("Vectorstore deleted.")
-
-    # Attempt to load vectorstore if not already in session
-    if "index" not in st.session_state or st.session_state.index is None:
-        index = load_vectorstore()
-        if index is not None:
-            st.session_state.index = index
-            st.sidebar.success("Vectorstore loaded from disk.")
-        else:
-            st.sidebar.warning("No vectorstore found. Please upload PDFs to build one.")
-            st.info("Vectorstore not available. Use the sidebar to build the vectorstore.")
-
-    # ──────────────────────────────────────────────────────────────────────────
-    # Main - Q&A with Gemini
-    # ──────────────────────────────────────────────────────────────────────────
-    st.header("Ask a Question")
-    user_query = st.text_input("Enter your query here")
-    if st.button("Submit Query") and user_query:
-        if "index" not in st.session_state or st.session_state.index is None:
-            st.error("No vectorstore available. Please build the vectorstore first.")
-        else:
-            index = st.session_state.index
-            retrieved_chunks = retrieve_text_chunks(user_query, index, k=4)
-            retrieved_text = "\n".join(chunk.page_content for chunk in retrieved_chunks)
-
-            # Compose the prompt for Gemini
             prompt = f"""
 System:
-You are a helpful nursing assistant that uses relevant context from a textbook and advanced reasoning to answer the user's question.
+You are a helpful assistant using textbook knowledge.
 Context:
 {retrieved_text}
 Question:
 {user_query}
 Answer:
             """
+            
             st.subheader("Prompt to Gemini")
             st.code(prompt)
 
-            GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
-            if not GOOGLE_API_KEY:
-                st.error("GOOGLE_API_KEY not set in environment.")
+            if not GEMINI_API_KEY:
+                st.error("No Google API key found.")
             else:
-                llm = ChatGoogleGenerativeAI(
-                    model="gemini-2.0-flash-thinking-exp-01-21",
-                    temperature=0,
-                    max_tokens=None,
-                    timeout=None,
-                    max_retries=2,
-                    api_key=GOOGLE_API_KEY
-                )
-                response = llm.invoke(prompt)
+                with st.spinner("Generating response..."):
+                    llm = ChatGoogleGenerativeAI(
+                        model="gemini-2.0-flash-thinking-exp-01-21",
+                        temperature=0,
+                        max_tokens=None,
+                        api_key=GEMINI_API_KEY
+                    )
+                    response = llm.invoke(prompt)
+                
                 st.subheader("Gemini's Response")
                 st.write(response.content)
-
-elif authentication_status is False:
-    st.error("Username/password is incorrect")
-else:
-    st.warning("Please enter your username and password")
+                
+                st.subheader("Retrieved Chunks Metadata")
+                for chunk in retrieved_chunks:
+                    st.markdown("---")
+                    st.markdown(f"### Chunk Metadata: {chunk.metadata}")
+                    st.write(chunk.page_content)
 
