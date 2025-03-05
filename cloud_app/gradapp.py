@@ -17,7 +17,7 @@ nest_asyncio.apply()
 load_dotenv()
 
 # Load the Streamlit Authenticator config file
-with open("./.streamlit/auth_streamlit_app_lite.yaml") as file:
+with open("./cloud_app/.streamlit/auth_streamlit_app_lite.yaml") as file:
     config = yaml.load(file, Loader=SafeLoader)
 
 # Ensure we have a valid cookie key
