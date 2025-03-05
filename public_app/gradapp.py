@@ -23,10 +23,10 @@ st.title("GradBoxLLM - Textbook AI Assistant")
 def hash_key(key):
     return hashlib.sha256(key.encode()).hexdigest() if key else None
 
+st.sidebar.markdown("[Like what you see? Star the Repo](https://github.com/MartinezSquared/GradBoxLLM)")
 st.sidebar.header("API Key Configuration")
 st.sidebar.markdown("[Get your Google API Key](https://aistudio.google.com/apikey)")
 st.sidebar.markdown("[Get your Hugging Face API Key](https://huggingface.co/settings/tokens)")
-st.sidebar.markdown("[Like what you see? Star the Repo](https://github.com/MartinezSquared/GradBoxLLM)")
 user_gemini_key = st.sidebar.text_input("Enter your Google API Key", type="password")
 user_hf_token = st.sidebar.text_input("Enter your Hugging Face Token", type="password")
 
