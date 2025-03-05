@@ -1,0 +1,21 @@
+cookie:
+  expiry_days: 0           # Set to 0 to require login every time
+  key: TheKey
+  name: taylorswrite
+credentials:
+  usernames:
+    Taylor:
+      email: wtmartinez@ucla.edu
+      failed_login_attempts: 0
+      first_name: Taylor
+      last_name: Martinez
+      logged_in: False
+      password: zeus123
+    Sebastian:
+      email: sctrevejo@ucla.edu
+      failed_login_attempts: 0
+      first_name: Sebastian
+      last_name: Martinez
+      logged_in: False
+      password: seb123
+
