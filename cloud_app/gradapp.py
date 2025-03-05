@@ -1,12 +1,10 @@
+import os
 import streamlit as st
 import streamlit_authenticator as stauth
 import yaml
 from yaml.loader import SafeLoader
-import os
 from dotenv import load_dotenv
 import nest_asyncio
-
-# -- Local imports --
 from langchain_google_genai import ChatGoogleGenerativeAI
 from rag import retrieve_text_chunks, load_vectorstore
 
@@ -18,7 +16,10 @@ load_dotenv()
 with open("./cloud_app/.streamlit/auth_streamlit_app_lite.yaml") as file:
     config = yaml.load(file, Loader=SafeLoader)
 
-# Instantiate the Authenticator
+# Streamlit UI
+st.title("GradBoxLLM - Textbook AI Assistant Demo")
+
+# Authentication
 authenticator = stauth.Authenticate(
     config["credentials"],
     config["cookie"]["name"],
@@ -30,81 +31,71 @@ authenticator = stauth.Authenticate(
 HF_TOKEN = st.secrets.get("HF_TOKEN")
 GEMINI_API_KEY = st.secrets.get("GOOGLE_API_KEY")
 
-# Streamlit UI
-st.title("GradBoxLLM - Textbook AI Assistant Demo")
-
-# Create a container for the login widget.
+# Authentication UI
 login_container = st.empty()
 with login_container.container():
     authenticator.login(
         "main",
-        fields={
-            "Form name": "Login",
-            "Username": "Username",
-            "Password": "Password",
-            "Login": "Login",
-            "Captcha": "Captcha"
-        },
+        fields={"Form name": "Login", "Username": "Username", "Password": "Password", "Login": "Login"},
         key="login"
     )
 
-# Check authentication state via st.session_state
 if st.session_state.get("authentication_status"):
-    # Remove the login widget by clearing the container.
     login_container.empty()
     name = st.session_state.get("name")
-    username = st.session_state.get("username")
     st.success(f"Welcome, {name}!")
-    # Render a logout button with a unique key.
     authenticator.logout("Logout", "main", key="logout-widget")
 
-    # --- Main App Logic ---
+    # --- Load FAISS Index ---
     if "index" not in st.session_state:
         if st.button("Load Vectorstore"):
             with st.spinner("Loading vectorstore..."):
-                index = load_vectorstore("./cloud_app/faissIndex")
-                if index is None:
-                    st.error("No vectorstore found. Please build it offline and place at './faissIndex'.")
-                else:
+                faiss_path = "./cloud_app/faissIndex"
+                index = load_vectorstore(faiss_path)
+                if index:
                     st.session_state["index"] = index
                     st.success("Vectorstore loaded successfully.")
-    else:
-        st.success("Vectorstore is already loaded.")
+                else:
+                    st.error("No FAISS index found.")
 
-    if st.session_state.get("index") is not None:
-        st.header("Ask a Question")
+    if "index" in st.session_state:
+        st.header("Ask a Nursing Related Question")
         user_query = st.text_input("Enter your query here")
         if st.button("Submit Query") and user_query:
-            index = st.session_state["index"]
-            retrieved_chunks = retrieve_text_chunks(user_query, index, k=4)
-            retrieved_text = "".join(chunk.page_content + "\n" for chunk in retrieved_chunks)
+            retrieved_chunks = retrieve_text_chunks(user_query, st.session_state["index"], k=4)
+            retrieved_text = "\n".join(f"Metadata: {chunk.metadata}\n{chunk.page_content}" for chunk in retrieved_chunks)
 
-            # Compose prompt
             prompt = f"""
 System:
-You are a helpful nursing assistant that uses relevant context from a textbook and advanced reasoning to answer the user's question.
+You are a helpful assistant using textbook knowledge.
 Context:
 {retrieved_text}
 Question:
 {user_query}
 Answer:
             """
-
+            
             st.subheader("Prompt to Gemini")
             st.code(prompt)
 
             if not GEMINI_API_KEY:
-                st.error("No Google API key (Gemini) found in secrets.")
+                st.error("No Google API key found.")
             else:
-                llm = ChatGoogleGenerativeAI(
-                    model="gemini-2.0-flash-thinking-exp-01-21",
-                    temperature=0,
-                    max_tokens=None,
-                    timeout=None,
-                    max_retries=2,
-                    api_key=GEMINI_API_KEY
-                )
-                response = llm.invoke(prompt)
+                with st.spinner("Generating response..."):
+                    llm = ChatGoogleGenerativeAI(
+                        model="gemini-2.0-flash-thinking-exp-01-21",
+                        temperature=0,
+                        max_tokens=None,
+                        api_key=GEMINI_API_KEY
+                    )
+                    response = llm.invoke(prompt)
+                
                 st.subheader("Gemini's Response")
                 st.write(response.content)
+                
+                st.subheader("Retrieved Chunks Metadata")
+                for chunk in retrieved_chunks:
+                    st.markdown("---")
+                    st.markdown(f"### Chunk Metadata: {chunk.metadata}")
+                    st.write(chunk.page_content)
 
