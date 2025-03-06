@@ -18,6 +18,13 @@ from rag_to_gemini import retrieve_text_chunks, load_vectorstore, get_faiss_inde
 import yaml
 from yaml.loader import SafeLoader
 
+st.set_page_config(
+    page_title="GradBox",
+    page_icon=":books:",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 # Load configuration from YAML file
 with open('./.streamlit/auth_streamlit_app.yaml') as file:
     config = yaml.load(file, Loader=SafeLoader)
@@ -41,7 +48,6 @@ nest_asyncio.apply()
 load_dotenv()
 
 # Constants for vectorstore path
-
 FAISS_INDEX_PATH = get_faiss_index_path("./tmp/vectorstore")
 
 def build_vectorstore(pdf_files):
@@ -62,29 +68,20 @@ def build_vectorstore(pdf_files):
             chunks = split_pdf_pages(pages, chunk_size=200, chunk_overlap=50)
             all_chunks.extend(chunks)
             os.remove(tmp_path)
+    
     with st.spinner(f"Embedding {len(all_chunks)} chunks into vectors :exploding_head:"):
-    # Compute embeddings (use "cuda" if available; otherwise "cpu")
+        # Compute embeddings (use "cuda" if available; otherwise "cpu")
         embeddings = compute_pdf_embeddings(all_chunks, device="cuda")
-    # Create the FAISS vectorstore
+        # Create the FAISS vectorstore
         index = create_faiss_index(embeddings, all_chunks)
-    # Save the index locally
+        # Save the index locally
         os.makedirs(FAISS_INDEX_PATH, exist_ok=True)
         index.save_local(FAISS_INDEX_PATH)
     return index
-# --- Streamlit UI ---
 
-# Create container
-title_container = st.container()
-# Define columns
-col1, col2 = st.columns([1, 8])
-# Load image
-image = Image.open('../assets/Logo3.png')
-# Use `with` to structure layout
-with title_container:
-    with col1:
-        st.image(image, width=250)
-    with col2:
-        st.title("GradBoxLLM - Textbook RAG")
+
+# --- Streamlit UI ---
+st.title(":books: GradBox - Textbook RAG")
 st.markdown("---")
 
 # Create a container for the login widget.
@@ -108,9 +105,9 @@ if st.session_state.get("authentication_status"):
     login_container.empty()
     name = st.session_state.get("name")
     username = st.session_state.get("username")
-    st.success(f"Welcome, {name}!")
+    st.sidebar.success(f"Welcome, {name}!")
     # Render a logout button with a unique key.
-    authenticator.logout("Logout", "main", key="logout-widget")
+    authenticator.logout("Logout", "sidebar", key="logout-widget")
 
     # --- Vectorstore Management (Sidebar) ---
     st.sidebar.header("Vectorstore Management")
@@ -119,23 +116,24 @@ if st.session_state.get("authentication_status"):
         index = build_vectorstore(uploaded_files)
         st.session_state.index = index
         st.sidebar.success(f"Loaded {FAISS_INDEX_PATH}")
+        st.success(f"Loaded {FAISS_INDEX_PATH}")
 
     if st.sidebar.button("Delete Vectorstore"):
         if os.path.exists(FAISS_INDEX_PATH):
             shutil.rmtree(FAISS_INDEX_PATH)
         st.session_state.index = None
         st.sidebar.success(f"{FAISS_INDEX_PATH} deleted.")
+        st.success(f"{FAISS_INDEX_PATH} deleted.")
 
     # Check if vectorstore is loaded; if not, load from disk
     if "index" not in st.session_state or st.session_state.index is None:
         if not os.path.exists(FAISS_INDEX_PATH):
             st.info("Please upload PDFs and build a vectorstore.")
-        elif index is not None:
+            st.sidebar.info("Please upload PDFs and build a vectorstore.")
+        else:
             st.session_state.index = index
             st.sidebar.success(f"{FAISS_INDEX_PATH} loaded.")
             index = load_vectorstore()
-        else:
-            st.info("Please upload PDFs and build a vectorstore.")
 
     # --- Main Content: Query using Gemini ---
     st.header("Ask a Question")
@@ -164,26 +162,35 @@ if st.session_state.get("authentication_status"):
             if not GEMINI_API_KEY:
                 st.error("No Google API key found.")
             else:
-                with st.spinner("Generating response..."):
+                with st.spinner("Generating response... :robot_face:"):
                     llm = ChatGoogleGenerativeAI(
                         model="gemini-2.0-flash-thinking-exp-01-21",
                         temperature=0,
                         max_tokens=None,
                         api_key=GEMINI_API_KEY
                     )
-                    response = llm.invoke(f"""
+                    prompt = (f"""
 System:
-You are a helpful assistant using textbook knowledge.
+You are a helpful assistant that answers the user's question. 
+First come up with an answer then review the chunks of text from RAG.
+Use the most relavent chunks to support your answer
+Provide the textbook metadata as a reference if you thought it was relavent.
+Otherwise, if none of the RAG text chunks were relavent, 
+answer the question using advance reasoning and at the end tell the user that none of the RAG chunks were used due to relavance.
+
 Context:
 {retrieved_text}
-Question:
+
+User:
 {user_query}
+
 Answer:
+
 """)
-                    
+                    response = llm.invoke(prompt)
                 st.subheader("Gemini's Response")
                 st.write(response.content)
-                
+               
                 st.subheader("Retrieved Chunks")
                 for i, chunk in enumerate(retrieved_chunks, start=1):
                     title = chunk.metadata.get("title", "Unknown Title")
@@ -195,16 +202,7 @@ Answer:
                     st.write(chunk.page_content)
                 
                 st.subheader("Prompt to Gemini")
-                st.code(f"""
-System:
-You are a helpful assistant using textbook knowledge.
-Context:
-{retrieved_text}
-Question:
-{user_query}
-Answer:
-                    """)
+                st.code(prompt)
 elif st.session_state.get("authentication_status") is False:
     st.error("Username/password is incorrect")
-elif st.session_state.get("authentication_status") is None:
-    st.warning("Please enter your username and password")
+

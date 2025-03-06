@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from langchain_community.vectorstores import FAISS
 from sentence_transformers import SentenceTransformer
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_community.document_loaders import PyPDFLoader
 import random
 
 # Load environment variables from .env file (including GOOGLE_API_KEY)

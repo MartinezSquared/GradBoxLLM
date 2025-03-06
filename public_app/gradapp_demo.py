@@ -65,7 +65,7 @@ if "credentials" in st.secrets and "usernames" in st.secrets["credentials"]:
                     unsafe_allow_html=True
                 )
 
-                retrieved_chunks = retrieve_text_chunks(user_query, st.session_state["index"], k=4)
+                retrieved_chunks = retrieve_text_chunks(user_query, st.session_state["index"], k=8)
                 
                 formatted_chunks = []
                 for i, chunk in enumerate(retrieved_chunks, start=1):
@@ -80,23 +80,33 @@ if "credentials" in st.secrets and "usernames" in st.secrets["credentials"]:
                 if not GEMINI_API_KEY:
                     st.error("No Google API key found.")
                 else:
-                    with st.spinner("Generating response..."):
+                    with st.spinner("Generating response... :robot_face:"):
                         llm = ChatGoogleGenerativeAI(
                             model="gemini-2.0-flash-thinking-exp-01-21",
                             temperature=0,
                             max_tokens=None,
                             api_key=GEMINI_API_KEY
                         )
-                        response = llm.invoke(f"""
+                    
+                        prompt = (f"""
 System:
-You are a helpful assistant using textbook knowledge.
+You are a helpful assistant that answers the user's question. 
+First come up with an answer then review the chunks of text from RAG.
+Use the most relavent chunks to support your answer
+Provide the textbook metadata as a reference if you thought it was relavent.
+Otherwise, if none of the RAG text chunks were relavent, 
+answer the question using advance reasoning and at the end tell the user that none of the RAG chunks were used due to relavance.
+
 Context:
 {retrieved_text}
-Question:
+
+User:
 {user_query}
+
 Answer:
-                        """)
-                    
+
+""")
+                        response = llm.invoke(prompt)
                     st.subheader("Gemini's Response")
                     st.write(response.content)
                     

@@ -53,7 +53,7 @@ if "index" in st.session_state:
     if st.button("Submit Query") and user_query:
 
         st.markdown("[Like what you see? Star the Github Project](https://github.com/MartinezSquared/GradBoxLLM)")
-        retrieved_chunks = retrieve_text_chunks(user_query, st.session_state["index"], k=4)
+        retrieved_chunks = retrieve_text_chunks(user_query, st.session_state["index"], k=8)
         
         formatted_chunks = []
         for i, chunk in enumerate(retrieved_chunks, start=1):
@@ -79,16 +79,25 @@ Page: {page}
                     max_tokens=None,
                     api_key=st.session_state["GEMINI_API_KEY"]
                 )
-                response = llm.invoke(f"""
+                prompt = (f"""
 System:
-You are a helpful assistant using textbook knowledge.
+You are a helpful assistant that answers the user's question. 
+First come up with an answer then review the chunks of text from RAG.
+Use the most relavent chunks to support your answer
+Provide the textbook metadata as a reference if you thought it was relavent.
+Otherwise, if none of the RAG text chunks were relavent, 
+answer the question using advance reasoning and at the end tell the user that none of the RAG chunks were used due to relavance.
+
 Context:
 {retrieved_text}
-Question:
+
+User:
 {user_query}
+
 Answer:
-                """)
-            
+
+""")
+                response = llm.invoke(prompt)
             st.subheader("Gemini's Response")
             st.write(response.content)
             
@@ -103,13 +112,5 @@ Answer:
                 st.write(chunk.page_content)
             
             st.subheader("Prompt to Gemini")
-            st.code(f"""
-System:
-You are a helpful assistant using textbook knowledge.
-Context:
-{retrieved_text}
-Question:
-{user_query}
-Answer:
-            """)
+            st.code(prompt)
 
