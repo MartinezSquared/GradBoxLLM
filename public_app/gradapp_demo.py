@@ -47,7 +47,7 @@ if "credentials" in st.secrets and "usernames" in st.secrets["credentials"]:
         if "index" not in st.session_state:
             if st.button("Load Vectorstore"):
                 with st.spinner("Loading vectorstore..."):
-                    faiss_path = "./cloud_app/faissIndex"
+                    faiss_path = "../app/faissIndex"
                     index = load_vectorstore(faiss_path)
                     if index:
                         st.session_state["index"] = index
