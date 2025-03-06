@@ -11,9 +11,8 @@ nest_asyncio.apply()
 load_dotenv()
 
 # Streamlit UI
-st.title("GradBoxLLM\nTextbook RAG Assistant")
-
-
+st.title("GradBoxLLM - Textbook RAG")
+st.markdown("""---""")
  
 # Ensure secrets are properly loaded
 if "credentials" in st.secrets and "usernames" in st.secrets["credentials"]:
@@ -36,6 +35,8 @@ if "credentials" in st.secrets and "usernames" in st.secrets["credentials"]:
             key="login"
         )
 
+        st.markdown("[Don't have a login? Use our public application.](https://gradboxllm-public.streamlit.app/)")
+
     if st.session_state.get("authentication_status"):
         login_container.empty()
         name = st.session_state.get("name")
@@ -46,7 +47,7 @@ if "credentials" in st.secrets and "usernames" in st.secrets["credentials"]:
         if "index" not in st.session_state:
             if st.button("Load Vectorstore"):
                 with st.spinner("Loading vectorstore..."):
-                    faiss_path = "./cloud_app/faissIndex"
+                    faiss_path = "./public_app/faissIndex"
                     index = load_vectorstore(faiss_path)
                     if index:
                         st.session_state["index"] = index

@@ -12,18 +12,15 @@ from rag import retrieve_text_chunks, load_vectorstore
 nest_asyncio.apply()
 load_dotenv()
 
-# Load Auth Config
-with open("./public_app/.streamlit/auth_streamlit_app_lite.yaml") as file:
-    config = yaml.load(file, Loader=SafeLoader)
-
 # Streamlit UI
-st.title("GradBoxLLM - Textbook AI Assistant")
+st.title("GradBoxLLM - Textbook RAG")
+st.markdown("""---""")
+
 
 # User API Key Input
 def hash_key(key):
     return hashlib.sha256(key.encode()).hexdigest() if key else None
 
-st.sidebar.markdown("[Like what you see? Star the Repo](https://github.com/MartinezSquared/GradBoxLLM)")
 st.sidebar.header("API Key Configuration")
 st.sidebar.markdown("[Get your Google API Key](https://aistudio.google.com/apikey)")
 st.sidebar.markdown("[Get your Hugging Face API Key](https://huggingface.co/settings/tokens)")
@@ -54,6 +51,8 @@ if "index" in st.session_state:
     st.header("Ask a Nursing Related Question")
     user_query = st.text_input("Enter your query here")
     if st.button("Submit Query") and user_query:
+
+        st.markdown("[Like what you see? Star the Github Project](https://github.com/MartinezSquared/GradBoxLLM)")
         retrieved_chunks = retrieve_text_chunks(user_query, st.session_state["index"], k=4)
         
         formatted_chunks = []
