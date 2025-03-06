@@ -8,10 +8,12 @@ import shutil
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 from langchain_google_genai import ChatGoogleGenerativeAI
+import random
+from PIL import Image
 
 # Import functions from your modules
 from pdf_to_vectorstore import load_pdf_pages, split_pdf_pages, compute_pdf_embeddings, create_faiss_index
-from rag_to_gemini import retrieve_text_chunks
+from rag_to_gemini import retrieve_text_chunks, load_vectorstore, get_faiss_index_path 
 
 import yaml
 from yaml.loader import SafeLoader
@@ -39,53 +41,51 @@ nest_asyncio.apply()
 load_dotenv()
 
 # Constants for vectorstore path
-FAISS_INDEX_PATH = "./faissIndex"
 
-def load_vectorstore():
-    """
-    Loads the FAISS vectorstore from disk using a CPU-based SentenceTransformer.
-    """
-    embed_model = SentenceTransformer(
-        "Lajavaness/bilingual-embedding-small",
-        trust_remote_code=True,
-        device="cpu"
-    )
-    if os.path.exists(FAISS_INDEX_PATH):
-        from langchain_community.vectorstores import FAISS  # local import for clarity
-        index = FAISS.load_local(FAISS_INDEX_PATH, embed_model, allow_dangerous_deserialization=True)
-        return index
-    else:
-        return None
+FAISS_INDEX_PATH = get_faiss_index_path("./tmp/vectorstore")
 
 def build_vectorstore(pdf_files):
     """Process uploaded PDFs, build a vectorstore, and save it locally."""
     all_chunks = []
-    for pdf_file in pdf_files:
-        # Save the uploaded PDF to a temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            tmp.write(pdf_file.read())
-            tmp_path = tmp.name
-        st.write(f"Processing: {tmp_path}")
-        pages = asyncio.run(load_pdf_pages(tmp_path))
-        chunks = split_pdf_pages(pages, chunk_size=200, chunk_overlap=50)
-        all_chunks.extend(chunks)
-        os.remove(tmp_path)
-    st.write(f"Total number of chunks: {len(all_chunks)}")
+    if len(pdf_files) > 1:
+        pdf_status = f"Reading {len(pdf_files)} PDF Files :nerd_face:"
+    else:
+        pdf_status = f"Reading the PDF File :nerd_face:"
 
+    with st.spinner(pdf_status):
+        for pdf_file in pdf_files:
+            # Save the uploaded PDF to a temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+                tmp.write(pdf_file.read())
+                tmp_path = tmp.name
+            pages = asyncio.run(load_pdf_pages(tmp_path))
+            chunks = split_pdf_pages(pages, chunk_size=200, chunk_overlap=50)
+            all_chunks.extend(chunks)
+            os.remove(tmp_path)
+    with st.spinner(f"Embedding {len(all_chunks)} chunks into vectors :exploding_head:"):
     # Compute embeddings (use "cuda" if available; otherwise "cpu")
-    embeddings = compute_pdf_embeddings(all_chunks, device="cuda")
-
+        embeddings = compute_pdf_embeddings(all_chunks, device="cuda")
     # Create the FAISS vectorstore
-    index = create_faiss_index(embeddings, all_chunks)
-
+        index = create_faiss_index(embeddings, all_chunks)
     # Save the index locally
-    os.makedirs(FAISS_INDEX_PATH, exist_ok=True)
-    index.save_local(FAISS_INDEX_PATH)
+        os.makedirs(FAISS_INDEX_PATH, exist_ok=True)
+        index.save_local(FAISS_INDEX_PATH)
     return index
-
 # --- Streamlit UI ---
 
-st.title("GradBoxLLM - Textbook AI Assistant")
+# Create container
+title_container = st.container()
+# Define columns
+col1, col2 = st.columns([1, 8])
+# Load image
+image = Image.open('../assets/Logo3.png')
+# Use `with` to structure layout
+with title_container:
+    with col1:
+        st.image(image, width=250)
+    with col2:
+        st.title("GradBoxLLM - Textbook RAG")
+st.markdown("---")
 
 # Create a container for the login widget.
 login_container = st.empty()
@@ -118,23 +118,24 @@ if st.session_state.get("authentication_status"):
     if st.sidebar.button("Build/Update Vectorstore") and uploaded_files:
         index = build_vectorstore(uploaded_files)
         st.session_state.index = index
-        st.sidebar.success("Vectorstore built and saved.")
+        st.sidebar.success(f"Loaded {FAISS_INDEX_PATH}")
 
     if st.sidebar.button("Delete Vectorstore"):
         if os.path.exists(FAISS_INDEX_PATH):
             shutil.rmtree(FAISS_INDEX_PATH)
         st.session_state.index = None
-        st.sidebar.success("Vectorstore deleted.")
+        st.sidebar.success(f"{FAISS_INDEX_PATH} deleted.")
 
     # Check if vectorstore is loaded; if not, load from disk
     if "index" not in st.session_state or st.session_state.index is None:
-        index = load_vectorstore()
-        if index is not None:
+        if not os.path.exists(FAISS_INDEX_PATH):
+            st.info("Please upload PDFs and build a vectorstore.")
+        elif index is not None:
             st.session_state.index = index
-            st.sidebar.success("Vectorstore loaded from disk.")
+            st.sidebar.success(f"{FAISS_INDEX_PATH} loaded.")
+            index = load_vectorstore()
         else:
-            st.sidebar.warning("No vectorstore found. Please upload PDFs to build one.")
-            st.info("Vectorstore not available. Please use the sidebar to upload PDFs and build the vectorstore.")
+            st.info("Please upload PDFs and build a vectorstore.")
 
     # --- Main Content: Query using Gemini ---
     st.header("Ask a Question")
@@ -144,40 +145,65 @@ if st.session_state.get("authentication_status"):
             st.error("No vectorstore available. Please build the vectorstore first.")
         else:
             index = st.session_state.index
-            retrieved_chunks = retrieve_text_chunks(user_query, index, k=4)
-            retrieved_text = ""
-            for chunk in retrieved_chunks:
-                retrieved_text += chunk.page_content + "\n"
-            # Compose the prompt for Gemini.
-            prompt = f"""
+            st.markdown(
+                "[Like what you see? Star the GitHub Project!](https://github.com/MartinezSquared/GradBoxLLM)",
+                unsafe_allow_html=True
+            )
+            retrieved_chunks = retrieve_text_chunks(user_query, st.session_state["index"], k=4)
+            
+            formatted_chunks = []
+            for i, chunk in enumerate(retrieved_chunks, start=1):
+                title = chunk.metadata.get("title", "Unknown Title")
+                page = chunk.metadata.get("page", "Unknown Page")
+                formatted_chunk = f"Chunk {i}:\nTitle: {title}\nPage: {page}\n{chunk.page_content}\n---\n"
+                formatted_chunks.append(formatted_chunk)
+            
+            retrieved_text = "\n".join(formatted_chunks)
+            
+            GEMINI_API_KEY = os.environ.get("GOOGLE_API_KEY")
+            if not GEMINI_API_KEY:
+                st.error("No Google API key found.")
+            else:
+                with st.spinner("Generating response..."):
+                    llm = ChatGoogleGenerativeAI(
+                        model="gemini-2.0-flash-thinking-exp-01-21",
+                        temperature=0,
+                        max_tokens=None,
+                        api_key=GEMINI_API_KEY
+                    )
+                    response = llm.invoke(f"""
 System:
-You are a helpful nursing assistant that uses relevant context from a textbook and advanced reasoning to answer the user's question.
+You are a helpful assistant using textbook knowledge.
 Context:
 {retrieved_text}
 Question:
 {user_query}
 Answer:
-            """
-            st.subheader("Prompt to Gemini")
-            st.code(prompt)
-
-            # Initialize Gemini LLM using the API key from environment variables.
-            GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
-            if GOOGLE_API_KEY is None:
-                st.error("GOOGLE_API_KEY not set in environment.")
-            else:
-                llm = ChatGoogleGenerativeAI(
-                    model="gemini-2.0-flash-thinking-exp-01-21",
-                    temperature=0,
-                    max_tokens=None,
-                    timeout=None,
-                    max_retries=2,
-                    api_key=GOOGLE_API_KEY
-                )
-                response = llm.invoke(prompt)
+""")
+                    
                 st.subheader("Gemini's Response")
                 st.write(response.content)
-
+                
+                st.subheader("Retrieved Chunks")
+                for i, chunk in enumerate(retrieved_chunks, start=1):
+                    title = chunk.metadata.get("title", "Unknown Title")
+                    page = chunk.metadata.get("page", "Unknown Page")
+                    st.markdown("---")
+                    st.markdown(f"### Chunk {i}")
+                    st.markdown(f"**Title:** {title}")
+                    st.markdown(f"**Page:** {page}")
+                    st.write(chunk.page_content)
+                
+                st.subheader("Prompt to Gemini")
+                st.code(f"""
+System:
+You are a helpful assistant using textbook knowledge.
+Context:
+{retrieved_text}
+Question:
+{user_query}
+Answer:
+                    """)
 elif st.session_state.get("authentication_status") is False:
     st.error("Username/password is incorrect")
 elif st.session_state.get("authentication_status") is None:

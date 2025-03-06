@@ -4,3 +4,4 @@ googleDrive/*
 *.env
 *__pycache__
 *.streamlit
+*tmp
