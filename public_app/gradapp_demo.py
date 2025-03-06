@@ -11,8 +11,8 @@ nest_asyncio.apply()
 load_dotenv()
 
 # Streamlit UI
-st.title("GradBoxLLM\nTextbook RAG Assistant")
-
+st.title("GradBoxLL")
+st.header("Textbook RAG Assistant")
 
  
 # Ensure secrets are properly loaded
