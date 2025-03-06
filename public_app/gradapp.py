@@ -39,7 +39,7 @@ if user_hf_token:
 if "index" not in st.session_state:
     if st.button("Load Vectorstore"):
         with st.spinner("Loading vectorstore..."):
-            faiss_path = "../app/faissIndex"
+            faiss_path = "./public_app/faissIndex"
             index = load_vectorstore(faiss_path)
             if index:
                 st.session_state["index"] = index
