@@ -31,7 +31,7 @@ with open('./.streamlit/login.yaml') as file:
 
 # Ensure the cookie key is provided; if not, stop execution.
 if not config.get('cookie', {}).get('key'):
-    st.error("Cookie key not set in YAML config. Please update 'login.yaml'.")
+    st.error("Cookie key not set in YAML config. Please update '.streamlit/login.yaml'.")
     st.stop()
 else:
     authenticator = stauth.Authenticate(
