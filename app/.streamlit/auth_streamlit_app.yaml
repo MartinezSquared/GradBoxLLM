@@ -1,0 +1,18 @@
+credentials:
+  usernames:
+    Student:
+      email: wtmartinez@gmail.com
+      name: MDSH Student
+      password: mdsh # To be replaced with hashed password
+    Taylor:
+      email: wtmartinez@gmail.com
+      name: Tayor 
+      password: zeus123 # To be replaced with hashed password
+    Sebastian:
+      email: sctrevejo@g.ucla.edu
+      name: Sebastian
+      password: seb123
+cookie:
+  expiry_days: 0
+  key: random_signature_key # Must be string
+  name: random_cookie_name

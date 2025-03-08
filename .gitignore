@@ -3,5 +3,5 @@ googleDrive/*
 *.DS_Store/
 *.env
 *__pycache__
-*.streamlit
+# *.streamlit
 *tmp
