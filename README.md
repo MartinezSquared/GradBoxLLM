@@ -1,6 +1,6 @@
 # GradBoxLLM
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1l0rZAew6QqEI28Bc_Hr5U2sEnCFvxuh_?usp=sharing)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](./public_app/gradapp.py)
 
 ## Achieve Textbook-Level Context Using RAG
 
