@@ -26,12 +26,12 @@ st.set_page_config(
 )
 
 # Load configuration from YAML file
-with open('./.streamlit/auth_streamlit_app.yaml') as file:
+with open('./.streamlit/login.yaml') as file:
     config = yaml.load(file, Loader=SafeLoader)
 
 # Ensure the cookie key is provided; if not, stop execution.
 if not config.get('cookie', {}).get('key'):
-    st.error("Cookie key not set in YAML config. Please update '.streamlit/auth_streamlit_app.yaml'.")
+    st.error("Cookie key not set in YAML config. Please update 'login.yaml'.")
     st.stop()
 else:
     authenticator = stauth.Authenticate(
