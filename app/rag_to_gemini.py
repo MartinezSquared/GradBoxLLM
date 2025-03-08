@@ -17,7 +17,7 @@ faiss_index_path = "./faissIndex"
 model = SentenceTransformer(
     "Lajavaness/bilingual-embedding-small",
     trust_remote_code=True,
-    device="cpu"  # Change to "cuda" if available
+    device="cuda"  # Change to "cuda" if available
 )
 
 # Load the FAISS index from disk
@@ -57,7 +57,7 @@ def load_vectorstore():
     embed_model = SentenceTransformer(
         "Lajavaness/bilingual-embedding-small",
         trust_remote_code=True,
-        device="cpu"
+        device="cuda"
     )
     if os.path.exists(FAISS_INDEX_PATH):
         from langchain_community.vectorstores import FAISS  # local import for clarity
