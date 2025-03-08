@@ -1,0 +1,11 @@
+faiss-cpu
+langchain-community
+langchain-google-genai
+langchain-huggingface
+langchain-text-splitters
+nest-asyncio
+pypdf
+sentence-transformers
+streamlit
+streamlit-authenticator
+tiktoken
