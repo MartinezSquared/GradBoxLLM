@@ -1,7 +1,5 @@
 # GradBoxLLM
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1l0rZAew6QqEI28Bc_Hr5U2sEnCFvxuh_?usp=sharing)
-
 ## Achieve Textbook-Level Context Using RAG
 
 Add a textbook to your AI chat prompts! Its as simple as uploading a pdf version of your textbook.
