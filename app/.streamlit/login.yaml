@@ -8,6 +8,10 @@ credentials:
       email: wtmartinez@gmail.com
       name: Paul Furer
       password: password
+    Politicom:
+      email: wtmartinez@ucla.edu
+      name: Politicom Law
+      password: law
 cookie:
   expiry_days: 0
   key: random_signature_key # Must be string
