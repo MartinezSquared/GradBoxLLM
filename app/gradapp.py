@@ -81,7 +81,7 @@ def build_vectorstore(pdf_files):
 
 
 # --- Streamlit UI ---
-st.title(":books: GradBox - Textbook RAG")
+st.title("GradBox - Textbook RAG")
 st.markdown("---")
 
 # Create a container for the login widget.
