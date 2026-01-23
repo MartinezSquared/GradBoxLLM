@@ -17,12 +17,13 @@ faiss_index_path = "./faissIndex"
 model = SentenceTransformer(
     "Lajavaness/bilingual-embedding-small",
     trust_remote_code=True,
-    device="cuda"  # Change to "cuda" if available
+    device="cuda",  # Change to "cuda" if available
 )
 
 # Load the FAISS index from disk
 index = FAISS.load_local(faiss_index_path, model, allow_dangerous_deserialization=True)
 print("FAISS index loaded.")
+
 
 def get_faiss_index_path(base_path="./tmp/faissIndex"):
     """
@@ -36,6 +37,7 @@ def get_faiss_index_path(base_path="./tmp/faissIndex"):
         faiss_index_path = f"./tmp/faissIndex{random_int}"
 
     return faiss_index_path
+
 
 def retrieve_text_chunks(query: str, index: FAISS, k: int = 4):
     """
@@ -55,13 +57,14 @@ def load_vectorstore():
     Loads the FAISS vectorstore from disk using a CPU-based SentenceTransformer.
     """
     embed_model = SentenceTransformer(
-        "Lajavaness/bilingual-embedding-small",
-        trust_remote_code=True,
-        device="cuda"
+        "Lajavaness/bilingual-embedding-small", trust_remote_code=True, device="cuda"
     )
     if os.path.exists(FAISS_INDEX_PATH):
         from langchain_community.vectorstores import FAISS  # local import for clarity
-        index = FAISS.load_local(FAISS_INDEX_PATH, embed_model, allow_dangerous_deserialization=True)
+
+        index = FAISS.load_local(
+            FAISS_INDEX_PATH, embed_model, allow_dangerous_deserialization=True
+        )
         return index
     else:
         return None
@@ -101,14 +104,14 @@ if __name__ == "__main__":
 
     # Initialize the Gemini LLM
     llm = ChatGoogleGenerativeAI(
-        model="gemini-2.0-flash-thinking-exp-01-21",
+        model="gemini-3-flash-prview",
         temperature=0,
         max_tokens=None,
         timeout=None,
         max_retries=2,
-        api_key=GOOGLE_API_KEY
+        api_key=GOOGLE_API_KEY,
     )
-    
+
     # Define your example query
     query = """
     An elderly client who experiences nighttime confusion wanders
@@ -119,13 +122,13 @@ if __name__ == "__main__":
     ❍ C. Administering a bedtime sedative
     ❍ D. Leaving a nightlight on during the evening and night shifts
     """
-    
+
     # Retrieve similar document chunks from the FAISS index
     retrieved_chunks = retrieve_text_chunks(query, index, k=4)
     retrieved_text = ""
     for chunk in retrieved_chunks:
         retrieved_text += chunk.page_content + "\n"
-    
+
     # Compose the prompt for Gemini
     prompt = f"""
 System:
@@ -138,12 +141,12 @@ Question:
 
 Answer:
     """
-    
+
     # Only print the input prompt and the output from Gemini.
     print("Input to Gemini:")
     print(prompt)
-    
+
     response = llm.invoke(prompt)
-    
+
     print("\nOutput from Gemini:")
     print(response.content)
