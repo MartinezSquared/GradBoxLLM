@@ -1,7 +1,20 @@
+# Direnv cache
+.direnv/
+
+# Nix build symlinks
+result
+result-*
+
 googleDrive/*
+
+# Secrets
+*.env
+
+# Python
 *.ipynb_checkpoints/
 *.DS_Store/
-*.env
 *__pycache__
+
+# Streamlit
 *.streamlit
 *tmp
